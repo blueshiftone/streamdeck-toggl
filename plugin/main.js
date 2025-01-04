@@ -86,8 +86,9 @@ function refreshButtons() {
         if (entryData //Does button match the active timer?
             && entryData.workspace_id == settings.workspaceId
             && (entryData.project_id ?? 0) == settings.projectId
-            && (entryData.task_id ?? 0) == settings.taskId
-            && entryData.description == settings.activity) {
+            && (entryData.task_id ?? 0) == settings.taskId ) //JD: Added bracket close
+            //&& entryData.description == settings.activity) //JD: Removed
+            {
           setState(context, 0)
           setTitle(context, `${formatElapsed(entryData.start)}\n\n\n${settings.label}`)
         } else { //if not, make sure it's 'off'
@@ -127,7 +128,8 @@ async function toggle(context, settings) {
     if (!entryData) {
       //Not running? Start a new one
       startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
-    } else if (entryData.workspace_id == workspaceId && (entryData.project_id ?? 0) == projectId && (entryData.task_id ?? 0) == taskId && entryData.description == activity) {
+    //} else if (entryData.workspace_id == workspaceId && (entryData.project_id ?? 0) == projectId && (entryData.task_id ?? 0) == taskId && entryData.description == activity) { //JD: disabled, due to the activiy
+    } else if (entryData.workspace_id == workspaceId && (entryData.project_id ?? 0) == projectId && (entryData.task_id ?? 0) == taskId ) {  //JD : copy of previous line, without the activity
       //The one running is "this one" -- toggle to stop
       stopEntry(apiToken, entryData.id, workspaceId).then(v=>refreshButtons())
     } else {
