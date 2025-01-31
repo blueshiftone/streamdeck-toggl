@@ -57,11 +57,12 @@
         <option value="0"></option>
       </select>
     </div>
-    <div class="sdpi-item invalidHidden hidden" id="fallbackWrapper">
-      <div class="sdpi-item-label">Fallback/Default task</div>
-      <select class="sdpi-item-value select" id="fallback" onchange="sendSettings()">
-        <option value="0" selected>No</option>
-        <option value="1">Yes (active when no other button is active)</option>
+    <div class="sdpi-item invalidHidden hidden" id="trackingModeWrapper">
+      <div class="sdpi-item-label">Tracking Mode</div>
+      <select class="sdpi-item-value select" id="trackingmode" onchange="sendSettings()">
+        <option value="0" selected>Exact Match</option>
+        <option value="1">Match Ignoring Description</option>
+        <option value="2">Fallback (active when no other button is active)</option>
       </select>
     </div>
     <div class="sdpi-item invalidHidden hidden" id="billableWrapper">

@@ -74,7 +74,7 @@ function matchButton(entry, button) {
     && entry.workspace_id == button.workspaceId 
     && (entry.project_id ?? 0) == button.projectId 
     && (entry.task_id ?? 0) == button.taskId 
-    && entry.description == button.activity
+    && (entry.description == button.activity || button.trackingMode == 1)
   )
 }
 
@@ -89,7 +89,7 @@ function matchWithFallback(entry, button) {
   if (matchButton(entry, button)) {
     return true
   }
-  if (!button.fallbackToggle) {
+  if (button.trackingMode != 1) {
     return false
   }
   // No exact match, but button is fallback button. If no other button matches
@@ -122,9 +122,8 @@ function refreshButtons() {
         //Find out if exact match or fallback match or no match
         const matchResult = matchWithFallback(entryData, settings)
         if(matchResult == "fallback") {
-          label = entryData.description || "other Task"
+          label = entryData.description || "Other Task"
         }
-
 
         if (matchResult) {
           setState(context, 0)
@@ -160,7 +159,7 @@ function leadingZero(val)
 }
 
 async function toggle(context, settings) {
-  const { apiToken, activity, taskId, projectId, workspaceId, billableToggle, fallbackToggle } = settings
+  const { apiToken, activity, taskId, projectId, workspaceId, billableToggle, trackingMode } = settings
 
   getCurrentEntry(apiToken).then(entryData => {
     if (!entryData) {

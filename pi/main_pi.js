@@ -35,7 +35,7 @@ function connectElgatoStreamDeckSocket (inPort, inPropertyInspectorUUID, inRegis
       if (payload.label) document.getElementById('label').value = payload.label
       if (payload.activity) document.getElementById('activity').value = payload.activity
       document.getElementById('billable').value = payload.billableToggle ? 1 : 0
-      document.getElementById('fallback').value = payload.fallbackToggle ? 1 : 0
+      document.getElementById('trackingmode').value = payload.trackingMode ?? (payload.fallbackToggle ? 2 : 0) // handle old fallback toggle for backwards compatibility
 
       const apiToken = document.getElementById('apitoken').value
 
@@ -75,7 +75,7 @@ function sendSettings () {
       projectId: document.getElementById('pid').value,
       taskId: document.getElementById('tid').value,
       billableToggle: document.getElementById('billable').value == 1 ?  true : false,
-      fallbackToggle: document.getElementById('fallback').value == 1 ?  true : false
+      trackingMode: document.getElementById('trackingmode').value
     }
   }))
 }
@@ -126,7 +126,7 @@ async function updateProjects (apiToken, workspaceId) {
       document.getElementById('workspaceError').classList.add('hiddenError')
       document.getElementById('projectWrapper').classList.remove('hidden')
       document.getElementById('billableWrapper').classList.remove('hidden')
-      document.getElementById('fallbackWrapper').classList.remove('hidden')
+      document.getElementById('trackingModeWrapper').classList.remove('hidden')
       const selectEl = document.getElementById('pid')
 
       if (projectsData != null) projectsData.sort((a, b) => { return (a.active === b.active) ? 0 : a.active ? -1 : 1; });
@@ -142,7 +142,7 @@ async function updateProjects (apiToken, workspaceId) {
     document.getElementById('taskWrapper').classList.add('hidden')
     document.getElementById('projectWrapper').classList.add('hidden')
     document.getElementById('billableWrapper').classList.add('hidden')
-    document.getElementById('fallbackWrapper').classList.add('hidden')
+    document.getElementById('trackingModeWrapper').classList.add('hidden')
   }
 }
 
