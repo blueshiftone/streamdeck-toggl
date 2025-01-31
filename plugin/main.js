@@ -69,6 +69,38 @@ async function initPolling() {
   polling = false
 }
 
+function matchButton(entry, button) {
+  return (entry 
+    && entry.workspace_id == button.workspaceId 
+    && (entry.project_id ?? 0) == button.projectId 
+    && (entry.task_id ?? 0) == button.taskId 
+    && entry.description == button.activity
+  )
+}
+
+function matchWithFallback(entry, button) {
+  // Compares entry (from API) with button (from config) to check for match
+  // Returns false for no match, true for exact match and "fallback" if button
+  //  is configured as fallback and this counts as a fallback match
+  if (!entry) {
+    // An empty entry matches nothing
+    return false
+  }
+  if (matchButton(entry, button)) {
+    return true
+  }
+  if (!button.fallbackToggle) {
+    return false
+  }
+  // No exact match, but button is fallback button. If no other button matches
+  // exactly, count as fallback match, otherwise as no match
+  if(![...currentButtons.values()].some(otherButton => matchButton(entry, otherButton))) {
+    return "fallback"
+  } else {
+    return false
+  }
+}
+
 function refreshButtons() {
 
   //Get the list of unique apiTokens
@@ -83,16 +115,23 @@ function refreshButtons() {
       currentButtons.forEach((settings, context) => {
         if (apiToken != settings.apiToken) //not one of "our" buttons
           return //We're in a forEach, this is effectively a 'continue'
-        if (entryData //Does button match the active timer?
-            && entryData.workspace_id == settings.workspaceId
-            && (entryData.project_id ?? 0) == settings.projectId
-            && (entryData.task_id ?? 0) == settings.taskId
-            && entryData.description == settings.activity) {
+        
+        //Default label
+        let label = settings.label
+        
+        //Find out if exact match or fallback match or no match
+        const matchResult = matchWithFallback(entryData, settings)
+        if(matchResult == "fallback") {
+          label = entryData.description || "other Task"
+        }
+
+
+        if (matchResult) {
           setState(context, 0)
-          setTitle(context, `${formatElapsed(entryData.start)}\n\n\n${settings.label}`)
+          setTitle(context, `${formatElapsed(entryData.start)}\n\n\n${label}`)
         } else { //if not, make sure it's 'off'
           setState(context, 1)
-          setTitle(context, settings.label)
+          setTitle(context, label)
         }
       })
     })
@@ -121,18 +160,20 @@ function leadingZero(val)
 }
 
 async function toggle(context, settings) {
-  const { apiToken, activity, taskId, projectId, workspaceId, billableToggle } = settings
+  const { apiToken, activity, taskId, projectId, workspaceId, billableToggle, fallbackToggle } = settings
 
   getCurrentEntry(apiToken).then(entryData => {
     if (!entryData) {
       //Not running? Start a new one
       startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
-    } else if (entryData.workspace_id == workspaceId && (entryData.project_id ?? 0) == projectId && (entryData.task_id ?? 0) == taskId && entryData.description == activity) {
-      //The one running is "this one" -- toggle to stop
-      stopEntry(apiToken, entryData.id, workspaceId).then(v=>refreshButtons())
     } else {
-      //Just start the new one, old one will stop, it's toggl.
-      startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+      if (matchWithFallback(entryData, settings)) {
+        //The one running is "this one" -- toggle to stop
+        stopEntry(apiToken, entryData.id, workspaceId).then(v=>refreshButtons())
+      } else {
+        //Just start the new one, old one will stop, it's toggl.
+        startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+      }
     }
   })
 }

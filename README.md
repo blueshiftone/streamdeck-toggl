@@ -14,6 +14,7 @@ Download the latest .streamDeckPlugin file from [Releases](https://github.com/bl
 * **Entry Name** describes the activity you want to report. It is not required but strongly recommended.
 * **Workspace** is your workspace you start the time entries in. Required.
 * **Project** is the project you want to assign the task to. Leave blank for no project. New projects can be added in Toggl.
+* **Fallback** designates this button as a fallback button. A fallback button starts a defined activity as normal (e.g. "TBD"), but will indicate and stop any activity that's not handled by another button.
 * **Billable** sets Toggl's billable flag (for Toggl paid plans only).
 
 ![StreamDeckScreenshot](resources/readme/StreamDeckScreenshot.png)
