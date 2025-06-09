@@ -10,12 +10,14 @@ Download the latest .streamDeckPlugin file from [Releases](https://github.com/bl
 
 * **Title** is a default Stream Deck property available for every button in Stream Deck. You should leave it empty (see Button Label).
 * **API Token** is your private API Token you can get from your [Toggl profile](https://track.toggl.com/profile). This Token is handled like a password. ***Don't share it***. Required.
+* **API Frequency** is the frequency with which the plugin will call the Toggl API. Start and Stop actions always require API calls, as does loading the list of workspaces, projects and tasks, so this just changes the interval for checking for the currently running time entry and updating button active highlighting. Required.
 * **Button Label** is used instead of *Title*. If the tracker isn't running, the Label is shown on the button. If the tracker is running the elapsed time is shown additionally. If *Title* is set, it will override *Button Label*.
 * **Entry Name** describes the activity you want to report. It is not required but strongly recommended.
 * **Workspace** is your workspace you start the time entries in. Required.
-* **Project** is the project you want to assign the task to. Leave blank for no project. New projects can be added in Toggl.
-* **Fallback** designates this button as a fallback button. A fallback button starts a defined activity as normal (e.g. "TBD"), but will indicate and stop any activity that's not handled by another button.
+* **Project** is the project you want to assign the time entry to. Leave blank for no project. New projects can be added in Toggl.
+* **Task** is the task you want to assign the time entry to. Leave blank for no task. New tasks can be added in Toggl.
 * **Billable** sets Toggl's billable flag (for Toggl paid plans only).
+* **Tracking Mode** controls how buttons are determined to be active. Exact Match designates that the button should be active only if the current time entry has an exact match on Description, Project and Task. Match Ignoring Description designates that the button should be active if the current time entry has a match on Project and Task. Fallback designates this button as a fallback button - starting a defined activity as normal (e.g. "TBD"), but showing as active when the current time entry does not match any other button.
 
 ![StreamDeckScreenshot](resources/readme/StreamDeckScreenshot.png)
 
@@ -48,7 +50,3 @@ To build a .streamDeckPlugin installer:
 cd [path]\one.blueshift.streamdeck.toggl.sdPlugin
 streamdeck pack --version [new version] --output [output directory]
 ```
-
-## Known Issues
-
-* Changing the *Button Label* wont change the *Title* immediately. Restart Stream Deck.

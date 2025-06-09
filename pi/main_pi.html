@@ -17,13 +17,20 @@
   <div class="sdpi-wrapper hiddenAll">
     <div class="sdpi-item">
       <div class="sdpi-item-label">API Token</div>
-      <input class="sdpi-item-value" id="apitoken" value="" pattern="[a-z0-9]+" placeholder="Enter your Private API Token"
-        onchange="setAPIToken()" required>
+      <input class="sdpi-item-value" id="apitoken" value="" pattern="[a-z0-9]+" placeholder="Enter your Private API Token" onchange="setAPIToken()" required>
     </div>
-    <div class="sdpi-item" id="error">
-      <details class="message caution">
-        <summary>API Token is invalid!</summary>
-      </details>
+    <div class="sdpi-item-child hiddenError" id="error">
+      <p class="message caution">API Token is invalid!</p>
+    </div>
+    <div class="sdpi-item" id="apiFrequencyWrapper">
+      <div class="sdpi-item-label">API Frequency</div>
+      <select class="sdpi-item-value select" id="apiFrequency" onchange="sendSettings()" required>
+        <option value="5">Start + Stop + Check every 5 seconds</option>
+        <option value="60">Start + Stop + Check every minute</option>
+        <option value="300">Start + Stop + Check every 5 minutes</option>
+        <option value="600" selected>Start + Stop + Check every 10 minutes</option>
+        <option value="3600">Start + Stop + Check every hour</option>
+      </select>
     </div>
     <hr>
     <div class="sdpi-item invalidHidden hidden" id="labelWrapper">
@@ -40,10 +47,8 @@
         <option value="0"></option>
       </select>
     </div>
-    <div class="sdpi-item hiddenError" id="workspaceError">
-      <details class="message caution">
-        <summary>Please select a workspace!</summary>
-      </details>
+    <div class="sdpi-item-child hiddenError" id="workspaceError">
+      <p class="message caution">Please select a workspace!</p>
     </div>
     <div class="sdpi-item invalidHidden hidden" id="projectWrapper">
       <div class="sdpi-item-label">Project</div>
@@ -57,19 +62,19 @@
         <option value="0"></option>
       </select>
     </div>
-    <div class="sdpi-item invalidHidden hidden" id="trackingModeWrapper">
-      <div class="sdpi-item-label">Tracking Mode</div>
-      <select class="sdpi-item-value select" id="trackingmode" onchange="sendSettings()">
-        <option value="0" selected>Exact Match</option>
-        <option value="1">Match Ignoring Description</option>
-        <option value="2">Fallback (active when no other button is active)</option>
-      </select>
-    </div>
     <div class="sdpi-item invalidHidden hidden" id="billableWrapper">
       <div class="sdpi-item-label">Billable</div>
       <select class="sdpi-item-value select" id="billable" onchange="sendSettings()">
         <option value="0" selected>No</option>
         <option value="1">Yes (paid Toggl plans only)</option>
+      </select>
+    </div>
+    <div class="sdpi-item invalidHidden hidden" id="trackingModeWrapper">
+      <div class="sdpi-item-label">Tracking Mode</div>
+      <select class="sdpi-item-value select" id="trackingmode" onchange="sendSettings()">
+        <option value="0" selected>Exact Match</option>
+        <option value="1">Match Ignoring Description</option>
+        <option value="2">Fallback (if no other button matches)</option>
       </select>
     </div>
     <div class="sdpi-item">

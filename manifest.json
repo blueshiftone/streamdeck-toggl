@@ -31,7 +31,7 @@
 	"Icon": "resources/pluginIcon",
 	"PropertyInspectorPath": "pi/main_pi.html",
 	"URL": "https://github.com/blueshiftone/streamdeck-toggl",
-	"Version": "1.5.6.0",
+	"Version": "1.6.0.0",
 	"OS": [
 		{
 			"Platform": "mac",

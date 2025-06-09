@@ -32,17 +32,19 @@ function connectElgatoStreamDeckSocket (inPort, inPropertyInspectorUUID, inRegis
       const payload = jsonObj.payload.settings
 
       if (payload.apiToken) document.getElementById('apitoken').value = payload.apiToken
+      document.getElementById('apiFrequency').value = payload.apiFrequency ?? 600
       if (payload.label) document.getElementById('label').value = payload.label
       if (payload.activity) document.getElementById('activity').value = payload.activity
       document.getElementById('billable').value = payload.billableToggle ? 1 : 0
       document.getElementById('trackingmode').value = payload.trackingMode ?? (payload.fallbackToggle ? 2 : 0) // handle old fallback toggle for backwards compatibility
-
+      
       const apiToken = document.getElementById('apitoken').value
 
       document.querySelector('.hiddenAll').classList.remove('hiddenAll')
 
       apiToken && updateWorkspaces(apiToken).then(e => {
         if (payload.workspaceId) {
+          document.getElementById('workspaceError').classList.add('hiddenError')
           document.getElementById('wid').value = payload.workspaceId
 
           updateProjects(apiToken, payload.workspaceId).then(e => {
@@ -69,6 +71,7 @@ function sendSettings () {
     context: uuid,
     payload: {
       apiToken: document.getElementById('apitoken').value,
+      apiFrequency: document.getElementById('apiFrequency').value,
       label: document.getElementById('label').value,
       activity: document.getElementById('activity').value,
       workspaceId: document.getElementById('wid').value,
@@ -84,11 +87,11 @@ function setAPIToken () {
   document.getElementById('wid').innerHTML = ''
   document.getElementById('pid').innerHTML = ''
   updateWorkspaces(document.getElementById('apitoken').value)
-  document.getElementById('workspaceError').classList.remove('hiddenError')
   sendSettings()
 }
 
 function setWorkspace () {
+  document.getElementById('workspaceError').classList.add('hiddenError')
   updateProjects(document.getElementById('apitoken').value, document.getElementById('wid').value)
   sendSettings()
 }
@@ -151,9 +154,10 @@ async function updateWorkspaces (apiToken) {
     await getWorkspaces(apiToken).then(workspaceData => {
       document.getElementById('wid').innerHTML = '<option value="0"></option>'
       document.getElementById('error').classList.add('hiddenError')
+      document.getElementById('workspaceWrapper').classList.remove('hidden')
       document.getElementById('labelWrapper').classList.remove('hidden')
       document.getElementById('activityWrapper').classList.remove('hidden')
-      document.getElementById('workspaceWrapper').classList.remove('hidden')
+      document.getElementById('workspaceError').classList.remove('hiddenError')
       const selectEl = document.getElementById('wid')
 
       for (ws in workspaceData) {

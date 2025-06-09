@@ -3,7 +3,10 @@ const togglBaseUrl = 'https://api.track.toggl.com/api/v9'
 
 let websocket = null
 let currentButtons = new Map()
-let polling = false
+let refreshInterval = 600000
+let refreshLoopActive = false
+let lastRefreshTime = null
+let currentTimeEntry = null
 
 function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
 
@@ -24,49 +27,66 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
     const { event, context, payload } = jsonObj
     switch (event) {
       case 'keyDown':
-        !payload.settings.apiToken && showAlert(context)
-        !payload.settings.workspaceId && showAlert(context)
-        toggle(context, payload.settings)
+        if (!payload.settings.apiToken || !payload.settings.workspaceId) {
+          showAlert(context)
+        } else {
+          toggle(payload.settings)
+        }
         break
       case 'willAppear':
-        !payload.settings.apiToken && showAlert(context)
-        !payload.isInMultiAction && payload.settings.apiToken && addButton(context, payload.settings)
+        if (!payload.settings.apiToken) {
+          showAlert(context)
+        } else if (!payload.isInMultiAction) {
+          addButton(context, payload.settings)
+        }
         break
       case 'willDisappear':
-        !payload.isInMultiAction && removeButton(context)
+        if (!payload.isInMultiAction) {
+          removeButton(context)
+        }
         break
-      case 'didReceiveSettings': // anything could have changed, pull it, add it, and refresh.
-        !payload.isInMultiAction && removeButton(context) && payload.settings.apiToken && addButton(context, payload.settings)
-        !payload.isInMultiAction && refreshButtons()
+      case 'didReceiveSettings':
+        if (!payload.isInMultiAction) {
+          removeButton(context)
+          if (payload.settings.apiToken) {
+            addButton(context, payload.settings)
+          }
+        }
         break
     }
+    refreshButtons()
   }
 }
 
-
 function removeButton(context) {
-  return currentButtons.delete(context)
+  currentButtons.delete(context)
+  updateRefreshInterval()
 }
 
 function addButton(context, settings) {
   currentButtons.set(context, settings)
-  initPolling()
+  updateRefreshInterval()
+  initRefreshLoop()
 }
 
-// Polling
-async function initPolling() {
-  if (polling) return
+function updateRefreshInterval() {
+  // Use shortest background refresh interval from all buttons, falling back to 10 minutes
+  refreshInterval = Math.min(...[...currentButtons.values()].map(s => s.apiFrequency || 600)) * 1000
+}
 
-  polling = true
+function initRefreshLoop() {
+  if (refreshLoopActive) return
+  refreshLoopActive = true
+  runRefreshLoop()
+}
 
-  while (currentButtons.size > 0) { // eslint-disable-line no-unmodified-loop-condition
-    refreshButtons()
-
-    //nothing special about 5s, just a random choice
-    await new Promise(r => setTimeout(r, 5000));
+function runRefreshLoop() {
+  if (currentButtons.size === 0) {
+    refreshLoopActive = false
+  } else {
+    refreshButtons();
+    setTimeout(runRefreshLoop, 1000)
   }
-
-  polling = false
 }
 
 function matchButton(entry, button) {
@@ -81,9 +101,8 @@ function matchButton(entry, button) {
 function matchWithFallback(entry, button) {
   // Compares entry (from API) with button (from config) to check for match
   // Returns false for no match, true for exact match and "fallback" if button
-  //  is configured as fallback and this counts as a fallback match
+  // is configured as fallback and this counts as a fallback match
   if (!entry) {
-    // An empty entry matches nothing
     return false
   }
   if (matchButton(entry, button)) {
@@ -101,80 +120,78 @@ function matchWithFallback(entry, button) {
   }
 }
 
-function refreshButtons() {
+async function refreshButtons() {
 
-  //Get the list of unique apiTokens
+  // Get the list of unique apiTokens
   var tokens = new Set([...currentButtons.values()].map(s=>s.apiToken))
 
-  tokens.forEach(apiToken => {
+  for (const apiToken of tokens) {
 
-    //Get the current entry for this token
-    getCurrentEntry(apiToken).then(entryData => {
+    // Get the current entry for this token
+    // Ignore errors such as invalid api tokens as these should be caught in property inspector
+    if (!lastRefreshTime || (Date.now() - lastRefreshTime) > refreshInterval) {
+      try {
+        await refreshCurrentEntry(apiToken);
+      } catch (_) { }
+    }
 
-      //Loop over all the buttons and update as appropriate
-      currentButtons.forEach((settings, context) => {
-        if (apiToken != settings.apiToken) //not one of "our" buttons
-          return //We're in a forEach, this is effectively a 'continue'
-        
-        //Default label
-        let label = settings.label
-        
-        //Find out if exact match or fallback match or no match
-        const matchResult = matchWithFallback(entryData, settings)
-        if(matchResult == "fallback") {
-          label = entryData.description || "Other Task"
-        }
+    // Loop over all the buttons and update as appropriate
+    currentButtons.forEach((settings, context) => {
+       // We're in a forEach, this is effectively a continue
+      if (apiToken != settings.apiToken) return
+      
+      // Default label
+      let label = settings.label
+      
+      // Find out if exact match or fallback match or no match
+      const matchResult = matchWithFallback(currentTimeEntry, settings)
+      if(matchResult == "fallback") {
+        label = currentTimeEntry.description || "Other Task"
+      }
 
-        if (matchResult) {
-          setState(context, 0)
-          setTitle(context, `${formatElapsed(entryData.start)}\n\n\n${label}`)
-        } else { //if not, make sure it's 'off'
-          setState(context, 1)
-          setTitle(context, label)
-        }
-      })
+      if (matchResult) {
+        setState(context, 0)
+        setTitle(context, `${formatElapsed(currentTimeEntry.start)}\n\n\n${label}`)
+      } else { // if not, make sure it's 'off'
+        setState(context, 1)
+        setTitle(context, label)
+      }
     })
-  })
+  }
 }
 
-function formatElapsed(startFromToggl)
-{
+function formatElapsed(startFromToggl) {
   const elapsed = Math.floor(Date.now()/1000) - Math.floor(new Date(startFromToggl).getTime()/1000)
   return formatSeconds(elapsed)
 }
 
-function formatSeconds(seconds)
-{
+function formatSeconds(seconds) {
   if (seconds < 3600)
     return leadingZero(Math.floor(seconds/60)) + ':' + leadingZero(seconds % 60)
-
   return leadingZero(Math.floor(seconds/3600)) + ':' + formatSeconds(seconds % 3600)
 }
 
-function leadingZero(val)
-{
+function leadingZero(val) {
   if (val < 10)
     return '0' + val
   return val
 }
 
-async function toggle(context, settings) {
-  const { apiToken, activity, taskId, projectId, workspaceId, billableToggle, trackingMode } = settings
+async function toggle(settings) {
+  const { apiToken, apiFrequency, activity, taskId, projectId, workspaceId, billableToggle, trackingMode } = settings
 
-  getCurrentEntry(apiToken).then(entryData => {
-    if (!entryData) {
-      //Not running? Start a new one
-      startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+  if (!currentTimeEntry) {
+    // Not running? Start a new one
+    startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+  } else {
+    if (matchWithFallback(currentTimeEntry, settings)) {
+      // The one running is "this one" - toggle to stop
+      stopEntry(apiToken, currentTimeEntry.id, workspaceId).then(v=>refreshButtons())
     } else {
-      if (matchWithFallback(entryData, settings)) {
-        //The one running is "this one" -- toggle to stop
-        stopEntry(apiToken, entryData.id, workspaceId).then(v=>refreshButtons())
-      } else {
-        //Just start the new one, old one will stop, it's toggl.
-        startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
-      }
+      // Just start the new one, old one will stop automatically
+      startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
     }
-  })
+  }
 }
 
 // Toggl API Helpers
@@ -200,6 +217,11 @@ function startEntry(apiToken = isRequired(), activity = 'Time Entry created by T
     },
     body: JSON.stringify(body)
   })
+  .then(response => response.json())
+  .then(data => {
+    currentTimeEntry = data
+    lastRefreshTime = Date.now()
+  });
 }
 
 function stopEntry(apiToken = isRequired(), entryId = isRequired(), workspaceId = 0) {
@@ -210,21 +232,27 @@ function stopEntry(apiToken = isRequired(), entryId = isRequired(), workspaceId 
       Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
     }
   })
+  .then(response => {
+    currentTimeEntry = null
+    lastRefreshTime = Date.now()
+  })
 }
 
-async function getCurrentEntry(apiToken = isRequired()) {
-  const response = await fetch(
-    `${togglBaseUrl}/me/time_entries/current`, {
+function refreshCurrentEntry(apiToken = isRequired()) {
+  return fetch(`${togglBaseUrl}/me/time_entries/current`, {
     method: 'GET',
     headers: {
       Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
     }
   })
-  const data = await response.json()
-  return data
+  .then(response => response.json())
+  .then(data => {
+    currentTimeEntry = data
+    lastRefreshTime = Date.now()
+  });
 }
 
-// Set Button State (for Polling)
+// Set Button State
 function setState(context = isRequired(), state = isRequired()) {
   websocket && (websocket.readyState === 1) &&
     websocket.send(JSON.stringify({
@@ -236,7 +264,7 @@ function setState(context = isRequired(), state = isRequired()) {
     }))
 }
 
-// Set Button Title (for Polling)
+// Set Button Title
 function setTitle(context = isRequired(), title = '') {
   websocket && (websocket.readyState === 1) && websocket.send(JSON.stringify({
     event: 'setTitle',
@@ -255,7 +283,7 @@ function showAlert(context = isRequired()) {
     }))
 }
 
-// throw error when required argument is not supplied
+// Throw error when required argument is not supplied
 const isRequired = () => {
   throw new Error('Missing required params')
 }
