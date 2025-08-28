@@ -1164,6 +1164,7 @@ html {
   
   a {
     color: #7397d2;
+    cursor: pointer;
   }
   
   .testcontainer {

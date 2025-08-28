@@ -179,50 +179,9 @@ async function updateWorkspaces (apiToken) {
   }
 }
 
-async function getTasks (apiToken, workspaceId, projectId) {
-  let data = [];
-
-  const response = await fetch(
-      `${togglBaseUrl}/workspaces/${workspaceId}/projects/${projectId}/tasks`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
-        }
-      })
-  const responseData = await response.json()
-  if (responseData.length == 0) return
-  data = data.concat(responseData)
-
-  return data
-}
-
-async function getProjects (apiToken, workspaceId) {
-  let data = [];
-  for(let page = 1; page <= 100; page++) {
-    const response = await fetch(
-      `${togglBaseUrl}/workspaces/${workspaceId}/projects?&page=${page}&per_page=200`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
-        }
-      })
-    const responseData = await response.json()
-    if (responseData.length == 0) break
-    data = data.concat(responseData)
-  }
-  return data
-}
-
-async function getWorkspaces (apiToken) {
-  const response = await fetch(
-    `${togglBaseUrl}/me/workspaces`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
-      }
-    })
-  const data = await response.json()
-  return data
+function clearTogglCache() {
+  clearCache();
+  alert("Cleared local cache of Toggl workspace, project and task data.");
 }
 
 function openPage (site) {
@@ -233,4 +192,107 @@ function openPage (site) {
       url: 'https://' + site
     }
   }))
+}
+
+async function getTasks(apiToken, workspaceId, projectId) {
+  const key = `tasks:${apiToken}:${workspaceId}:${projectId}`;
+  return withCache(key, async () => {
+    const response = await fetch(
+      `${togglBaseUrl}/workspaces/${workspaceId}/projects/${projectId}/tasks`,
+      { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
+    );
+    const json = await response.json();
+    return Array.isArray(json) ? json : [];
+  });
+}
+
+async function getProjects(apiToken, workspaceId) {
+  const key = `projects:${apiToken}:${workspaceId}`;
+  return withCache(key, async () => {
+    let data = [];
+    for (let page = 1; page <= 100; page++) {
+      const response = await fetch(
+        `${togglBaseUrl}/workspaces/${workspaceId}/projects?page=${page}&per_page=200`,
+        { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
+      );
+      const chunk = await response.json();
+      if (!Array.isArray(chunk) || chunk.length === 0) break;
+      data = data.concat(chunk);
+    }
+    return data;
+  });
+}
+
+async function getWorkspaces(apiToken) {
+  const key = `workspaces:${apiToken}`;
+  return withCache(key, async () => {
+    const response = await fetch(
+      `${togglBaseUrl}/me/workspaces`,
+      { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
+    );
+    const json = await response.json();
+    return Array.isArray(json) ? json : [];
+  });
+}
+
+// ---- IndexedDB cache (1 hour TTL) ------------------------------------
+
+const ONE_HOUR = 60 * 60 * 1000;
+const DB_NAME = "togglCache";
+const STORE = "cache";
+
+async function withCache(key, fetcher, ttl = ONE_HOUR) {
+  try {
+    const cached = await getCache(key);
+    if (cached && (Date.now() - cached.ts) <= ttl) {
+      return cached.data;
+    }
+  } catch (_) { /* ignore cache read errors */ }
+
+  const data = await fetcher();
+
+  try {
+    await setCache(key, { ts: Date.now(), data });
+  } catch (_) { /* ignore cache write errors */ }
+
+  return data;
+}
+
+function clearCache() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error("Cache deletion blocked."));
+  });
+}
+
+function getCache(key) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(STORE, "readonly");
+      const getReq = tx.objectStore(STORE).get(key);
+      getReq.onsuccess = () => { resolve(getReq.result); db.close(); };
+      getReq.onerror = () => { reject(getReq.error); db.close(); };
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function setCache(key, value) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(STORE, "readwrite");
+      const putReq = tx.objectStore(STORE).put(value, key);
+      putReq.onsuccess = () => { resolve(); db.close(); };
+      putReq.onerror = () => { reject(putReq.error); db.close(); };
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
