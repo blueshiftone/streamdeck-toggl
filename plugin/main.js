@@ -5,6 +5,7 @@ let websocket = null
 let currentButtons = new Map()
 let refreshInterval = 600000
 let refreshLoopActive = false
+let refreshingButtons = false
 let lastRefreshTime = null
 let currentTimeEntry = null
 
@@ -21,7 +22,7 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
     }))
   }
 
-  websocket.onmessage = function (evt) {
+  websocket.onmessage = async function (evt) {
     // Received message from Stream Deck
     const jsonObj = JSON.parse(evt.data)
     const { event, context, payload } = jsonObj
@@ -30,7 +31,7 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
         if (!payload.settings.apiToken || !payload.settings.workspaceId) {
           showAlert(context)
         } else {
-          toggle(payload.settings)
+          await toggle(payload.settings)
         }
         break
       case 'willAppear':
@@ -54,7 +55,7 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
         }
         break
     }
-    refreshButtons()
+    await refreshButtons()
   }
 }
 
@@ -121,6 +122,8 @@ function matchWithFallback(entry, button) {
 }
 
 async function refreshButtons() {
+  if (refreshingButtons) return
+  refreshingButtons = true
 
   // Get the list of unique apiTokens
   var tokens = new Set([...currentButtons.values()].map(s=>s.apiToken))
@@ -158,6 +161,7 @@ async function refreshButtons() {
       }
     })
   }
+  refreshingButtons = false;
 }
 
 function formatElapsed(startFromToggl) {
