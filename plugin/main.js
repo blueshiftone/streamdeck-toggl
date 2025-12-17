@@ -186,74 +186,88 @@ async function toggle(settings) {
 
   if (!currentTimeEntry) {
     // Not running? Start a new one
-    startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+    await startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
   } else {
     if (matchWithFallback(currentTimeEntry, settings)) {
       // The one running is "this one" - toggle to stop
-      stopEntry(apiToken, currentTimeEntry.id, workspaceId).then(v=>refreshButtons())
+      await stopEntry(apiToken, currentTimeEntry.id, workspaceId).then(v=>refreshButtons())
     } else {
       // Just start the new one, old one will stop automatically
-      startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+      await startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
     }
   }
 }
 
 // Toggl API Helpers
 
-function startEntry(apiToken = isRequired(), activity = 'Time Entry created by Toggl for Stream Deck', workspaceId = 0, projectId = 0, taskId = 0, billableToggle = false) {
-  const date = new Date();
-  const body = {
-    start: date.toISOString().substring(0,19) + "Z",
-    description: activity,
-    wid: Number(workspaceId),
-    billable: billableToggle,
-    created_with: 'Stream Deck',
-    duration: -1
-  };
-  if (projectId && projectId != 0) body.project_id = Number(projectId);
-  if (taskId && taskId != 0) body.task_id = Number(taskId);
-  return fetch(
-    `${togglBaseUrl}/workspaces/${workspaceId}/time_entries`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
-    },
-    body: JSON.stringify(body)
-  })
-  .then(response => response.json())
-  .then(data => {
-    currentTimeEntry = data
-    lastRefreshTime = Date.now()
-  });
+async function startEntry(apiToken = isRequired(), activity = "Time Entry created by Toggl for Stream Deck", workspaceId = 0, projectId = 0, taskId = 0, billableToggle = false
+) {
+  try {
+    const date = new Date();
+    const body = {
+      start: date.toISOString().substring(0, 19) + "Z",
+      description: activity,
+      wid: Number(workspaceId),
+      billable: billableToggle,
+      created_with: "Stream Deck",
+      duration: -1
+    };
+
+    if (projectId && projectId != 0) body.project_id = Number(projectId);
+    if (taskId && taskId != 0) body.task_id = Number(taskId);
+
+    const response = await fetch(
+      `${togglBaseUrl}/workspaces/${workspaceId}/time_entries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` },
+        body: JSON.stringify(body)
+      }
+    );
+
+    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`);
+
+    const data = await response.json();
+    currentTimeEntry = data;
+    lastRefreshTime = Date.now();
+  } catch (e) {
+    log("Error in startEntry: " + (e instanceof Error ? e.message : String(e)));
+    throw e;
+  }
 }
 
-function stopEntry(apiToken = isRequired(), entryId = isRequired(), workspaceId = 0) {
-  return fetch(
-    `${togglBaseUrl}/workspaces/${workspaceId}/time_entries/${entryId}/stop`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
-    }
-  })
-  .then(response => {
-    currentTimeEntry = null
-    lastRefreshTime = Date.now()
-  })
+async function stopEntry(apiToken = isRequired(), entryId = isRequired(), workspaceId = 0) {
+  try {
+    const response = await fetch(
+      `${togglBaseUrl}/workspaces/${workspaceId}/time_entries/${entryId}/stop`, {
+        method: "PATCH",
+        headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` }
+      }
+    );
+    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`);
+    currentTimeEntry = null;
+    lastRefreshTime = Date.now();
+  } catch (e) {
+    log("Error in stopEntry: " + (e instanceof Error ? e.message : String(e)));
+    throw e;
+  }
 }
 
-function refreshCurrentEntry(apiToken = isRequired()) {
-  return fetch(`${togglBaseUrl}/me/time_entries/current`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    currentTimeEntry = data
-    lastRefreshTime = Date.now()
-  });
+async function refreshCurrentEntry(apiToken = isRequired()) {
+  try {
+    const response = await fetch(
+      `${togglBaseUrl}/me/time_entries/current`, {
+        method: "GET",
+        headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}`}
+      }
+    );
+    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`);
+    const data = await response.json();
+    currentTimeEntry = data;
+    lastRefreshTime = Date.now();
+  } catch (e) {
+    log("Error in refreshCurrentEntry: " + (e instanceof Error ? e.message : String(e)));
+    throw e;
+  }
 }
 
 // Set Button State
@@ -285,6 +299,13 @@ function showAlert(context = isRequired()) {
       event: 'showAlert',
       context: context
     }))
+}
+
+function log(message) {
+  websocket.send(JSON.stringify({
+    event: "logMessage",
+    payload: { message }
+  }));
 }
 
 // Throw error when required argument is not supplied

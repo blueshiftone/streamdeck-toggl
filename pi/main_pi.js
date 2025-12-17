@@ -119,6 +119,7 @@ async function updateTasks (apiToken, workspaceId, projectId) {
     })
   } catch (e) {
     document.getElementById('taskWrapper').classList.add('hidden')
+    log("Error in updateTasks: " + (e instanceof Error ? e.message : typeof e === "string" ? e : String(e)))
   }
 }
 
@@ -146,6 +147,7 @@ async function updateProjects (apiToken, workspaceId) {
     document.getElementById('projectWrapper').classList.add('hidden')
     document.getElementById('billableWrapper').classList.add('hidden')
     document.getElementById('trackingModeWrapper').classList.add('hidden')
+    log("Error in updateProjects: " + (e instanceof Error ? e.message : typeof e === "string" ? e : String(e)))
   }
 }
 
@@ -153,6 +155,7 @@ async function updateWorkspaces (apiToken) {
   try {
     await getWorkspaces(apiToken).then(workspaceData => {
       document.getElementById('wid').innerHTML = '<option value="0"></option>'
+      document.getElementById('errorMessage').innerHTML = ""
       document.getElementById('error').classList.add('hiddenError')
       document.getElementById('workspaceWrapper').classList.remove('hidden')
       document.getElementById('labelWrapper').classList.remove('hidden')
@@ -168,6 +171,7 @@ async function updateWorkspaces (apiToken) {
       }
     })
   } catch (e) {
+    document.getElementById('errorMessage').innerHTML = (e instanceof Error ? e.message : typeof e === "string" ? e : String(e))
     document.getElementById('error').classList.remove('hiddenError')
     document.getElementById('workspaceWrapper').classList.add('hidden')
     document.getElementById('labelWrapper').classList.add('hidden')
@@ -175,7 +179,7 @@ async function updateWorkspaces (apiToken) {
     document.getElementById('projectWrapper').classList.add('hidden')
     document.getElementById('taskWrapper').classList.add('hidden')
     document.getElementById('workspaceError').classList.add('hiddenError')
-    console.log(e)
+    log("Error in updateWorkspaces: " + (e instanceof Error ? e.message : typeof e === "string" ? e : String(e)))
   }
 }
 
@@ -201,6 +205,7 @@ async function getTasks(apiToken, workspaceId, projectId) {
       `${togglBaseUrl}/workspaces/${workspaceId}/projects/${projectId}/tasks`,
       { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
     );
+    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`);
     const json = await response.json();
     return Array.isArray(json) ? json : [];
   });
@@ -215,6 +220,7 @@ async function getProjects(apiToken, workspaceId) {
         `${togglBaseUrl}/workspaces/${workspaceId}/projects?page=${page}&per_page=200`,
         { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
       );
+      if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`);
       const chunk = await response.json();
       if (!Array.isArray(chunk) || chunk.length === 0) break;
       data = data.concat(chunk);
@@ -230,9 +236,17 @@ async function getWorkspaces(apiToken) {
       `${togglBaseUrl}/me/workspaces`,
       { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
     );
+    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`);
     const json = await response.json();
     return Array.isArray(json) ? json : [];
   });
+}
+
+function log(message) {
+  websocket.send(JSON.stringify({
+    event: "logMessage",
+    payload: { message }
+  }));
 }
 
 // ---- IndexedDB cache (1 hour TTL) ------------------------------------
