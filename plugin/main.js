@@ -182,25 +182,25 @@ function leadingZero(val) {
 }
 
 async function toggle(settings) {
-  const { apiToken, apiFrequency, activity, taskId, projectId, workspaceId, billableToggle, trackingMode } = settings
+  const { apiToken, apiFrequency, activity, taskId, projectId, workspaceId, billableToggle, trackingMode, tagIds } = settings
 
   if (!currentTimeEntry) {
     // Not running? Start a new one
-    await startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+    await startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle, tagIds).then(v=>refreshButtons())
   } else {
     if (matchWithFallback(currentTimeEntry, settings)) {
       // The one running is "this one" - toggle to stop
       await stopEntry(apiToken, currentTimeEntry.id, workspaceId).then(v=>refreshButtons())
     } else {
       // Just start the new one, old one will stop automatically
-      await startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle).then(v=>refreshButtons())
+      await startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle, tagIds).then(v=>refreshButtons())
     }
   }
 }
 
 // Toggl API Helpers
 
-async function startEntry(apiToken = isRequired(), activity = "Time Entry created by Toggl for Stream Deck", workspaceId = 0, projectId = 0, taskId = 0, billableToggle = false
+async function startEntry(apiToken = isRequired(), activity = "Time Entry created by Toggl for Stream Deck", workspaceId = 0, projectId = 0, taskId = 0, billableToggle = false, tagIds = []
 ) {
   try {
     const date = new Date();
@@ -215,6 +215,7 @@ async function startEntry(apiToken = isRequired(), activity = "Time Entry create
 
     if (projectId && projectId != 0) body.project_id = Number(projectId);
     if (taskId && taskId != 0) body.task_id = Number(taskId);
+    if (Array.isArray(tagIds) && tagIds.length > 0) body.tag_ids = tagIds.map(Number);
 
     const response = await fetch(
       `${togglBaseUrl}/workspaces/${workspaceId}/time_entries`, {

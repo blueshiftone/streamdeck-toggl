@@ -54,7 +54,15 @@ function connectElgatoStreamDeckSocket (inPort, inPropertyInspectorUUID, inRegis
               updateTasks(apiToken, payload.workspaceId, payload.projectId).then(e => {
                 if (payload.taskId)
                   document.getElementById('tid').value = payload.taskId
+              })
+            }
+          })
 
+          updateTags(apiToken, payload.workspaceId).then(() => {
+            if (payload.tagIds && payload.tagIds.length > 0) {
+              const tagSelect = document.getElementById('tags')
+              Array.from(tagSelect.options).forEach(o => {
+                o.selected = payload.tagIds.includes(Number(o.value))
               })
             }
           })
@@ -77,6 +85,7 @@ function sendSettings () {
       workspaceId: document.getElementById('wid').value,
       projectId: document.getElementById('pid').value,
       taskId: document.getElementById('tid').value,
+      tagIds: Array.from(document.getElementById('tags').selectedOptions).map(o => Number(o.value)),
       billableToggle: document.getElementById('billable').value == 1 ?  true : false,
       trackingMode: document.getElementById('trackingmode').value
     }
@@ -93,6 +102,7 @@ function setAPIToken () {
 function setWorkspace () {
   document.getElementById('workspaceError').classList.add('hiddenError')
   updateProjects(document.getElementById('apitoken').value, document.getElementById('wid').value)
+  updateTags(document.getElementById('apitoken').value, document.getElementById('wid').value)
   sendSettings()
 }
 
@@ -151,6 +161,30 @@ async function updateProjects (apiToken, workspaceId) {
   }
 }
 
+async function updateTags (apiToken, workspaceId) {
+  try {
+    await getTags(apiToken, workspaceId).then(tagsData => {
+      const selectEl = document.getElementById('tags')
+      selectEl.innerHTML = ''
+      if (tagsData.length > 0) {
+        tagsData.sort((a, b) => a.name.localeCompare(b.name))
+        for (const tag of tagsData) {
+          const optionEl = document.createElement('option')
+          optionEl.innerText = tag.name
+          optionEl.value = tag.id.toString()
+          selectEl.append(optionEl)
+        }
+        document.getElementById('tagWrapper').classList.remove('hidden')
+      } else {
+        document.getElementById('tagWrapper').classList.add('hidden')
+      }
+    })
+  } catch (e) {
+    document.getElementById('tagWrapper').classList.add('hidden')
+    log("Error in updateTags: " + (e instanceof Error ? e.message : typeof e === "string" ? e : String(e)))
+  }
+}
+
 async function updateWorkspaces (apiToken) {
   try {
     await getWorkspaces(apiToken).then(workspaceData => {
@@ -178,6 +212,7 @@ async function updateWorkspaces (apiToken) {
     document.getElementById('activityWrapper').classList.add('hidden')
     document.getElementById('projectWrapper').classList.add('hidden')
     document.getElementById('taskWrapper').classList.add('hidden')
+    document.getElementById('tagWrapper').classList.add('hidden')
     document.getElementById('workspaceError').classList.add('hiddenError')
     log("Error in updateWorkspaces: " + (e instanceof Error ? e.message : typeof e === "string" ? e : String(e)))
   }
@@ -196,6 +231,19 @@ function openPage (site) {
       url: 'https://' + site
     }
   }))
+}
+
+async function getTags(apiToken, workspaceId) {
+  const key = `tags:${apiToken}:${workspaceId}`
+  return withCache(key, async () => {
+    const response = await fetch(
+      `${togglBaseUrl}/workspaces/${workspaceId}/tags`,
+      { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
+    )
+    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`)
+    const json = await response.json()
+    return Array.isArray(json) ? json : []
+  })
 }
 
 async function getTasks(apiToken, workspaceId, projectId) {

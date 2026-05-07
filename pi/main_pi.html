@@ -62,6 +62,11 @@
         <option value="0"></option>
       </select>
     </div>
+    <div class="sdpi-item invalidHidden hidden" id="tagWrapper">
+      <div class="sdpi-item-label">Tags</div>
+      <select class="sdpi-item-value select" id="tags" multiple size="4" onchange="sendSettings()">
+      </select>
+    </div>
     <div class="sdpi-item invalidHidden hidden" id="billableWrapper">
       <div class="sdpi-item-label">Billable</div>
       <select class="sdpi-item-value select" id="billable" onchange="sendSettings()">
