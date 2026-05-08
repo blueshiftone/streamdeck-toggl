@@ -60,10 +60,10 @@ function connectElgatoStreamDeckSocket (inPort, inPropertyInspectorUUID, inRegis
 
           updateTags(apiToken, payload.workspaceId).then(() => {
             if (payload.tagIds && payload.tagIds.length > 0) {
-              const tagSelect = document.getElementById('tags')
-              Array.from(tagSelect.options).forEach(o => {
-                o.selected = payload.tagIds.includes(Number(o.value))
+              document.querySelectorAll('#tagList input[type="checkbox"]').forEach(cb => {
+                cb.checked = payload.tagIds.includes(Number(cb.value))
               })
+              updateTagPreview()
             }
           })
         }
@@ -85,7 +85,7 @@ function sendSettings () {
       workspaceId: document.getElementById('wid').value,
       projectId: document.getElementById('pid').value,
       taskId: document.getElementById('tid').value,
-      tagIds: Array.from(document.getElementById('tags').selectedOptions).map(o => Number(o.value)),
+      tagIds: Array.from(document.querySelectorAll('#tagList input:checked')).map(cb => Number(cb.value)),
       billableToggle: document.getElementById('billable').value == 1 ?  true : false,
       trackingMode: document.getElementById('trackingmode').value
     }
@@ -164,26 +164,60 @@ async function updateProjects (apiToken, workspaceId) {
 async function updateTags (apiToken, workspaceId) {
   try {
     await getTags(apiToken, workspaceId).then(tagsData => {
-      const selectEl = document.getElementById('tags')
-      selectEl.innerHTML = ''
+      const listEl = document.getElementById('tagList')
+      listEl.innerHTML = ''
       if (tagsData.length > 0) {
         tagsData.sort((a, b) => a.name.localeCompare(b.name))
         for (const tag of tagsData) {
-          const optionEl = document.createElement('option')
-          optionEl.innerText = tag.name
-          optionEl.value = tag.id.toString()
-          selectEl.append(optionEl)
+          const label = document.createElement('label')
+          label.className = 'tag-item'
+          const cb = document.createElement('input')
+          cb.type = 'checkbox'
+          cb.value = tag.id.toString()
+          cb.dataset.name = tag.name
+          cb.onchange = () => { updateTagPreview(); sendSettings() }
+          label.appendChild(cb)
+          label.appendChild(document.createTextNode(tag.name))
+          listEl.appendChild(label)
         }
         document.getElementById('tagWrapper').classList.remove('hidden')
       } else {
         document.getElementById('tagWrapper').classList.add('hidden')
       }
+      updateTagPreview()
     })
   } catch (e) {
     document.getElementById('tagWrapper').classList.add('hidden')
     log("Error in updateTags: " + (e instanceof Error ? e.message : typeof e === "string" ? e : String(e)))
   }
 }
+
+function toggleTagDropdown () {
+  const panel = document.getElementById('tagPanel')
+  const isOpen = !panel.classList.contains('hidden')
+  panel.classList.toggle('hidden', isOpen)
+  if (!isOpen) document.getElementById('tagSearch').focus()
+}
+
+function filterTags () {
+  const query = document.getElementById('tagSearch').value.toLowerCase()
+  document.querySelectorAll('#tagList .tag-item').forEach(item => {
+    const name = item.querySelector('input').dataset.name.toLowerCase()
+    item.style.display = name.includes(query) ? '' : 'none'
+  })
+}
+
+function updateTagPreview () {
+  const names = Array.from(document.querySelectorAll('#tagList input:checked')).map(cb => cb.dataset.name)
+  document.getElementById('tagPreview').textContent = names.join(', ')
+}
+
+document.addEventListener('click', function (e) {
+  const dropdown = document.getElementById('tagDropdown')
+  if (dropdown && !dropdown.contains(e.target)) {
+    document.getElementById('tagPanel')?.classList.add('hidden')
+  }
+})
 
 async function updateWorkspaces (apiToken) {
   try {
