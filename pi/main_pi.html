@@ -10,6 +10,68 @@
     .hidden, .hiddenError, .hiddenAll {
       display: none;
     }
+    #tagDropdown {
+      padding: 0 !important;
+    }
+    .tag-toggle {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-height: 26px;
+      box-sizing: border-box;
+      padding: 0 20px 0 4px;
+      cursor: pointer;
+      border: 1pt solid #303030;
+      border-radius: var(--sdpi-borderradius);
+      background: var(--sdpi-background) url(caret.svg) no-repeat 97% center;
+      color: var(--sdpi-color);
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #tagPanel {
+      border: 1pt solid #303030;
+      border-top: none;
+      background: var(--sdpi-background);
+      border-radius: var(--sdpi-borderradius);
+    }
+    #tagSearch {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 3px 4px;
+      background: rgba(0,0,0,0.2);
+      border: none;
+      border-bottom: 1pt solid #303030;
+      color: var(--sdpi-color);
+      outline: none;
+    }
+    #tagList {
+      max-height: 88px;
+      overflow-y: auto;
+    }
+    .tag-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 4px;
+      color: var(--sdpi-color);
+      cursor: pointer;
+    }
+    .tag-item:hover {
+      background: rgba(255,255,255,0.08);
+    }
+    .tag-item input[type="checkbox"] {
+      display: inline-block !important;
+      -webkit-appearance: auto !important;
+      appearance: auto !important;
+      width: 12px;
+      height: 12px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: #e01b5d;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 
@@ -61,6 +123,18 @@
       <select class="sdpi-item-value select" id="tid" onchange="sendSettings()">
         <option value="0"></option>
       </select>
+    </div>
+    <div class="sdpi-item invalidHidden hidden" id="tagWrapper">
+      <div class="sdpi-item-label">Tags</div>
+      <div class="sdpi-item-value" id="tagDropdown">
+        <div class="tag-toggle" id="tagToggle" onclick="toggleTagDropdown()">
+          <span id="tagPreview"></span>
+        </div>
+        <div class="hidden" id="tagPanel">
+          <input type="text" id="tagSearch" placeholder="Search..." oninput="filterTags()" autocomplete="off">
+          <div id="tagList"></div>
+        </div>
+      </div>
     </div>
     <div class="sdpi-item invalidHidden hidden" id="billableWrapper">
       <div class="sdpi-item-label">Billable</div>
