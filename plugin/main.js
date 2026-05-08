@@ -95,7 +95,7 @@ function matchButton(entry, button) {
     && entry.workspace_id == button.workspaceId 
     && (entry.project_id ?? 0) == button.projectId 
     && (entry.task_id ?? 0) == button.taskId 
-    && (entry.description == button.activity || button.trackingMode == 1)
+    && (entry.description == button.activity || button.trackingMode == 1 || (button.trackingMode == 3 && button.activity && entry.description?.startsWith(button.activity)))
   )
 }
 
