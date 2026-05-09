@@ -4,7 +4,6 @@ const togglBaseUrl = 'https://api.track.toggl.com/api/v9'
 let websocket = null
 let currentButtons = new Map()
 let continueButtons = new Map()
-let lastKnownEntries = new Map() // Map<apiToken, lastStoppedEntry>
 let refreshInterval = 600000
 let refreshLoopActive = false
 let refreshingButtons = false
@@ -101,13 +100,6 @@ function addContinueButton(context, settings) {
   continueButtons.set(context, settings)
   updateRefreshInterval()
   initRefreshLoop()
-  // Eagerly fetch the last entry so the button label is populated immediately
-  getLastEntry(settings.apiToken).then(entry => {
-    if (entry) {
-      lastKnownEntries.set(settings.apiToken, entry)
-      refreshButtons()
-    }
-  }).catch(() => {})
 }
 
 function removeContinueButton(context) {
@@ -182,11 +174,6 @@ async function refreshButtons() {
     if (!lastRefreshTime || (Date.now() - lastRefreshTime) > refreshInterval) {
       try {
         await refreshCurrentEntry(apiToken)
-        // When no timer is running and we have continue buttons, refresh the last known entry
-        if (!currentTimeEntry && [...continueButtons.values()].some(s => s.apiToken === apiToken)) {
-          const lastEntry = await getLastEntry(apiToken)
-          if (lastEntry) lastKnownEntries.set(apiToken, lastEntry)
-        }
       } catch (_) { }
     }
 
@@ -222,8 +209,7 @@ async function refreshButtons() {
         setTitle(context, `${formatElapsed(currentTimeEntry.start)}\n\n\n${currentTimeEntry.description || ''}`)
       } else {
         setState(context, 1)
-        const lastEntry = lastKnownEntries.get(apiToken)
-        setTitle(context, lastEntry?.description || 'Continue')
+        setTitle(context, settings.label || 'Continue')
       }
     })
   }
@@ -276,7 +262,6 @@ async function toggleContinue(context, settings) {
         showAlert(context)
         return
       }
-      lastKnownEntries.set(apiToken, lastEntry)
       await startEntry(
         apiToken,
         lastEntry.description,
