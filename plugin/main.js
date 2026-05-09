@@ -3,6 +3,8 @@ const togglBaseUrl = 'https://api.track.toggl.com/api/v9'
 
 let websocket = null
 let currentButtons = new Map()
+let continueButtons = new Map()
+let lastKnownEntries = new Map() // Map<apiToken, lastStoppedEntry>
 let refreshInterval = 600000
 let refreshLoopActive = false
 let refreshingButtons = false
@@ -25,32 +27,57 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
   websocket.onmessage = async function (evt) {
     // Received message from Stream Deck
     const jsonObj = JSON.parse(evt.data)
-    const { event, context, payload } = jsonObj
+    const { event, context, payload, action } = jsonObj
+    const isContinue = action === 'one.blueshift.streamdeck.toggl.continue'
+
     switch (event) {
       case 'keyDown':
-        if (!payload.settings.apiToken || !payload.settings.workspaceId) {
-          showAlert(context)
+        if (isContinue) {
+          if (!payload.settings.apiToken) {
+            showAlert(context)
+          } else {
+            await toggleContinue(context, payload.settings)
+          }
         } else {
-          await toggle(payload.settings)
+          if (!payload.settings.apiToken || !payload.settings.workspaceId) {
+            showAlert(context)
+          } else {
+            await toggle(payload.settings)
+          }
         }
         break
       case 'willAppear':
         if (!payload.settings.apiToken) {
           showAlert(context)
         } else if (!payload.isInMultiAction) {
-          addButton(context, payload.settings)
+          if (isContinue) {
+            addContinueButton(context, payload.settings)
+          } else {
+            addButton(context, payload.settings)
+          }
         }
         break
       case 'willDisappear':
         if (!payload.isInMultiAction) {
-          removeButton(context)
+          if (isContinue) {
+            removeContinueButton(context)
+          } else {
+            removeButton(context)
+          }
         }
         break
       case 'didReceiveSettings':
         if (!payload.isInMultiAction) {
-          removeButton(context)
-          if (payload.settings.apiToken) {
-            addButton(context, payload.settings)
+          if (isContinue) {
+            removeContinueButton(context)
+            if (payload.settings.apiToken) {
+              addContinueButton(context, payload.settings)
+            }
+          } else {
+            removeButton(context)
+            if (payload.settings.apiToken) {
+              addButton(context, payload.settings)
+            }
           }
         }
         break
@@ -70,9 +97,29 @@ function addButton(context, settings) {
   initRefreshLoop()
 }
 
+function addContinueButton(context, settings) {
+  continueButtons.set(context, settings)
+  updateRefreshInterval()
+  initRefreshLoop()
+  // Eagerly fetch the last entry so the button label is populated immediately
+  getLastEntry(settings.apiToken).then(entry => {
+    if (entry) {
+      lastKnownEntries.set(settings.apiToken, entry)
+      refreshButtons()
+    }
+  }).catch(() => {})
+}
+
+function removeContinueButton(context) {
+  continueButtons.delete(context)
+  updateRefreshInterval()
+}
+
 function updateRefreshInterval() {
-  // Use shortest background refresh interval from all buttons, falling back to 10 minutes
-  refreshInterval = Math.min(...[...currentButtons.values()].map(s => s.apiFrequency || 600)) * 1000
+  const allSettings = [...currentButtons.values(), ...continueButtons.values()]
+  refreshInterval = allSettings.length > 0
+    ? Math.min(...allSettings.map(s => s.apiFrequency || 600)) * 1000
+    : 600000
 }
 
 function initRefreshLoop() {
@@ -82,7 +129,7 @@ function initRefreshLoop() {
 }
 
 function runRefreshLoop() {
-  if (currentButtons.size === 0) {
+  if (currentButtons.size === 0 && continueButtons.size === 0) {
     refreshLoopActive = false
   } else {
     refreshButtons();
@@ -91,10 +138,10 @@ function runRefreshLoop() {
 }
 
 function matchButton(entry, button) {
-  return (entry 
-    && entry.workspace_id == button.workspaceId 
-    && (entry.project_id ?? 0) == button.projectId 
-    && (entry.task_id ?? 0) == button.taskId 
+  return (entry
+    && entry.workspace_id == button.workspaceId
+    && (entry.project_id ?? 0) == button.projectId
+    && (entry.task_id ?? 0) == button.taskId
     && (entry.description == button.activity || button.trackingMode == 1 || (button.trackingMode == 3 && button.activity && entry.description?.startsWith(button.activity)))
   )
 }
@@ -125,27 +172,32 @@ async function refreshButtons() {
   if (refreshingButtons) return
   refreshingButtons = true
 
-  // Get the list of unique apiTokens
-  var tokens = new Set([...currentButtons.values()].map(s=>s.apiToken))
+  var tokens = new Set([
+    ...[...currentButtons.values()].map(s => s.apiToken),
+    ...[...continueButtons.values()].map(s => s.apiToken)
+  ])
 
   for (const apiToken of tokens) {
 
-    // Get the current entry for this token
-    // Ignore errors such as invalid api tokens as these should be caught in property inspector
     if (!lastRefreshTime || (Date.now() - lastRefreshTime) > refreshInterval) {
       try {
-        await refreshCurrentEntry(apiToken);
+        await refreshCurrentEntry(apiToken)
+        // When no timer is running and we have continue buttons, refresh the last known entry
+        if (!currentTimeEntry && [...continueButtons.values()].some(s => s.apiToken === apiToken)) {
+          const lastEntry = await getLastEntry(apiToken)
+          if (lastEntry) lastKnownEntries.set(apiToken, lastEntry)
+        }
       } catch (_) { }
     }
 
-    // Loop over all the buttons and update as appropriate
+    // Update regular buttons
     currentButtons.forEach((settings, context) => {
        // We're in a forEach, this is effectively a continue
       if (apiToken != settings.apiToken) return
-      
+
       // Default label
       let label = settings.label
-      
+
       // Find out if exact match or fallback match or no match
       const matchResult = matchWithFallback(currentTimeEntry, settings)
       if(matchResult == "fallback") {
@@ -158,6 +210,20 @@ async function refreshButtons() {
       } else { // if not, make sure it's 'off'
         setState(context, 1)
         setTitle(context, label)
+      }
+    })
+
+    // Update continue buttons
+    continueButtons.forEach((settings, context) => {
+      if (apiToken != settings.apiToken) return
+
+      if (currentTimeEntry) {
+        setState(context, 0)
+        setTitle(context, `${formatElapsed(currentTimeEntry.start)}\n\n\n${currentTimeEntry.description || ''}`)
+      } else {
+        setState(context, 1)
+        const lastEntry = lastKnownEntries.get(apiToken)
+        setTitle(context, lastEntry?.description || 'Continue')
       }
     })
   }
@@ -194,6 +260,34 @@ async function toggle(settings) {
     } else {
       // Just start the new one, old one will stop automatically
       await startEntry(apiToken, activity, workspaceId, projectId, taskId, billableToggle, tagIds).then(v=>refreshButtons())
+    }
+  }
+}
+
+async function toggleContinue(context, settings) {
+  const { apiToken } = settings
+
+  if (currentTimeEntry) {
+    await stopEntry(apiToken, currentTimeEntry.id, currentTimeEntry.workspace_id).then(() => refreshButtons())
+  } else {
+    try {
+      const lastEntry = await getLastEntry(apiToken)
+      if (!lastEntry) {
+        showAlert(context)
+        return
+      }
+      lastKnownEntries.set(apiToken, lastEntry)
+      await startEntry(
+        apiToken,
+        lastEntry.description,
+        lastEntry.workspace_id,
+        lastEntry.project_id,
+        lastEntry.task_id,
+        lastEntry.billable,
+        lastEntry.tag_ids
+      ).then(() => refreshButtons())
+    } catch (e) {
+      showAlert(context)
     }
   }
 }
@@ -267,6 +361,26 @@ async function refreshCurrentEntry(apiToken = isRequired()) {
     lastRefreshTime = Date.now();
   } catch (e) {
     log("Error in refreshCurrentEntry: " + (e instanceof Error ? e.message : String(e)));
+    throw e;
+  }
+}
+
+async function getLastEntry(apiToken = isRequired()) {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10)
+    const response = await fetch(
+      `${togglBaseUrl}/me/time_entries?start_date=${sevenDaysAgo}`, {
+        method: "GET",
+        headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` }
+      }
+    );
+    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`);
+    const entries = await response.json();
+    if (!Array.isArray(entries)) return null;
+    // Entries are newest-first; find first one that is stopped (duration > 0)
+    return entries.find(e => e.duration > 0) ?? null;
+  } catch (e) {
+    log("Error in getLastEntry: " + (e instanceof Error ? e.message : String(e)));
     throw e;
   }
 }

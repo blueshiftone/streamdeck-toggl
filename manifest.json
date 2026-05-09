@@ -18,6 +18,26 @@
 			"SupportedInMultiActions": true,
 			"Tooltip": "Hassle-free time tracking using the Elgato Stream Deck and Toggl",
 			"UUID": "one.blueshift.streamdeck.toggl"
+		},
+		{
+			"Icon": "resources/actionIcon",
+			"Name": "Continue Last Timer",
+			"PropertyInspectorPath": "pi/continue_pi.html",
+			"States": [
+				{
+					"Image": "resources/actionImageOn",
+					"TitleAlignment": "bottom",
+					"FontSize": 10
+				},
+				{
+					"Image": "resources/actionImageOff",
+					"TitleAlignment": "bottom",
+					"FontSize": 10
+				}
+			],
+			"SupportedInMultiActions": false,
+			"Tooltip": "Continue the last used Toggl time entry with one press",
+			"UUID": "one.blueshift.streamdeck.toggl.continue"
 		}
 	],
 	"SDKVersion": 2,
