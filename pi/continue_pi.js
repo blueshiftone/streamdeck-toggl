@@ -1,6 +1,4 @@
 /* eslint-disable no-unused-vars, no-undef */
-const togglBaseUrl = 'https://api.track.toggl.com/api/v9'
-
 let websocket = null
 let uuid = null
 
@@ -31,8 +29,6 @@ function connectElgatoStreamDeckSocket(inPort, inPropertyInspectorUUID, inRegist
 
       document.querySelector('.hiddenAll').classList.remove('hiddenAll')
 
-      const apiToken = document.getElementById('apitoken').value
-      if (apiToken) loadLastEntry(apiToken)
     }
   }
 }
@@ -50,33 +46,7 @@ function sendSettings() {
 }
 
 function setAPIToken() {
-  const apiToken = document.getElementById('apitoken').value
   sendSettings()
-  if (apiToken) loadLastEntry(apiToken)
-}
-
-async function loadLastEntry(apiToken) {
-  const display = document.getElementById('lastEntryDisplay')
-  const wrapper = document.getElementById('lastEntryWrapper')
-  display.textContent = 'Loading…'
-  wrapper.style.display = ''
-
-  try {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10)
-    const response = await fetch(
-      `${togglBaseUrl}/me/time_entries?start_date=${sevenDaysAgo}`,
-      { headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` } }
-    )
-    if (!response.ok) throw new Error(`Toggl API Error: ${await response.text()} (${response.status})`)
-    const entries = await response.json()
-    const lastEntry = Array.isArray(entries) ? entries.find(e => e.duration > 0) : null
-
-    display.textContent = lastEntry
-      ? (lastEntry.description || '(no description)')
-      : 'No recent entries found'
-  } catch (e) {
-    display.textContent = 'Could not load — check API token'
-  }
 }
 
 function openPage(site) {
