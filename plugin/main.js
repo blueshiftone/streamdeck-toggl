@@ -199,19 +199,6 @@ async function refreshButtons() {
         setTitle(context, label)
       }
     })
-
-    // Update continue buttons
-    continueButtons.forEach((settings, context) => {
-      if (apiToken != settings.apiToken) return
-
-      if (currentTimeEntry) {
-        setState(context, 0)
-        setTitle(context, `${formatElapsed(currentTimeEntry.start)}\n\n\n${currentTimeEntry.description || ''}`)
-      } else {
-        setState(context, 1)
-        setTitle(context, settings.label || 'Continue')
-      }
-    })
   }
   refreshingButtons = false;
 }
@@ -352,9 +339,11 @@ async function refreshCurrentEntry(apiToken = isRequired()) {
 
 async function getLastEntry(apiToken = isRequired()) {
   try {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10)
+    const now = Date.now()
+    const startDate = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10)
+    const endDate = new Date(now + 24 * 60 * 60 * 1000).toISOString().substring(0, 10)
     const response = await fetch(
-      `${togglBaseUrl}/me/time_entries?start_date=${sevenDaysAgo}`, {
+      `${togglBaseUrl}/me/time_entries?start_date=${startDate}&end_date=${endDate}`, {
         method: "GET",
         headers: { Authorization: `Basic ${btoa(`${apiToken}:api_token`)}` }
       }
