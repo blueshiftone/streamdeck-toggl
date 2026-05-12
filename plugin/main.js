@@ -108,10 +108,9 @@ function removeContinueButton(context) {
 }
 
 function updateRefreshInterval() {
+  // Use shortest background refresh interval from all buttons, falling back to 10 minutes
   const allSettings = [...currentButtons.values(), ...continueButtons.values()]
-  refreshInterval = allSettings.length > 0
-    ? Math.min(...allSettings.map(s => s.apiFrequency || 600)) * 1000
-    : 600000
+  refreshInterval = allSettings.length > 0 ? Math.min(...allSettings.map(s => s.apiFrequency || 600)) * 1000 : 600000
 }
 
 function initRefreshLoop() {
@@ -177,7 +176,7 @@ async function refreshButtons() {
       } catch (_) { }
     }
 
-    // Update regular buttons
+    // Loop over regular buttons and update as appropriate
     currentButtons.forEach((settings, context) => {
        // We're in a forEach, this is effectively a continue
       if (apiToken != settings.apiToken) return
@@ -249,15 +248,7 @@ async function toggleContinue(context, settings) {
         showAlert(context)
         return
       }
-      await startEntry(
-        apiToken,
-        lastEntry.description,
-        lastEntry.workspace_id,
-        lastEntry.project_id,
-        lastEntry.task_id,
-        lastEntry.billable,
-        lastEntry.tag_ids
-      ).then(() => refreshButtons())
+      await startEntry(apiToken, lastEntry.description, lastEntry.workspace_id, lastEntry.project_id, lastEntry.task_id, lastEntry.billable, lastEntry.tag_ids).then(() => refreshButtons())
     } catch (e) {
       showAlert(context)
     }
