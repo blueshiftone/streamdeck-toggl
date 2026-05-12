@@ -16,8 +16,23 @@
 				}
 			],
 			"SupportedInMultiActions": true,
-			"Tooltip": "Hassle-free time tracking using the Elgato Stream Deck and Toggl",
+			"Tooltip": "Start or stop a Toggl time entry",
 			"UUID": "one.blueshift.streamdeck.toggl"
+		},
+		{
+			"Icon": "resources/actionIconContinue",
+			"Name": "Continue Last Timer",
+			"PropertyInspectorPath": "pi/continue_pi.html",
+			"States": [
+				{
+					"Image": "resources/actionImageContinue",
+					"TitleAlignment": "bottom",
+					"FontSize": 10
+				}
+			],
+			"SupportedInMultiActions": false,
+			"Tooltip": "Continue the last used Toggl time entry",
+			"UUID": "one.blueshift.streamdeck.toggl.continue"
 		}
 	],
 	"SDKVersion": 2,
@@ -31,7 +46,7 @@
 	"Icon": "resources/pluginIcon",
 	"PropertyInspectorPath": "pi/main_pi.html",
 	"URL": "https://github.com/blueshiftone/streamdeck-toggl",
-	"Version": "1.7.2.0",
+	"Version": "1.7.3.0",
 	"OS": [
 		{
 			"Platform": "mac",

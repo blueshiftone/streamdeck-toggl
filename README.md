@@ -48,5 +48,5 @@ streamdeck restart one.blueshift.streamdeck.toggl
 To build a .streamDeckPlugin installer:
 ```
 cd [path]\one.blueshift.streamdeck.toggl.sdPlugin
-streamdeck pack --version [new version] --output [output directory]
+streamdeck pack --version [new version] --output [output directory] --force
 ```
