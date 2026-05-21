@@ -270,9 +270,9 @@ async function startEntry(apiToken = isRequired(), activity = "Time Entry create
       duration: -1
     };
 
-    if (projectId && projectId != 0) body.project_id = Number(projectId);
-    if (taskId && taskId != 0) body.task_id = Number(taskId);
-    if (Array.isArray(tagIds) && tagIds.length > 0) body.tag_ids = tagIds.map(Number);
+    body.project_id = (projectId && projectId != 0) ? Number(projectId) : null;
+    body.task_id    = (taskId && taskId != 0)        ? Number(taskId)    : null;
+    body.tag_ids    = (Array.isArray(tagIds) && tagIds.length > 0) ? tagIds.map(Number) : [];
 
     const response = await fetch(
       `${togglBaseUrl}/workspaces/${workspaceId}/time_entries`, {
